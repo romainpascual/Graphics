@@ -105,18 +105,25 @@ class Ball:
                  mass = 0.10,
                  color = 'r',
                  potential = None,
-                 isovalue = 0.05,
+                 isovalue = 0.1,
                  border_size = 10):
         
         self.skeleton = skeleton
         self.mass = mass
         self.color = color
         self.isovalue = isovalue
+        self.restIso = isovalue
         self.border_size = border_size        
         self.size = 0
     
-    def potential(self,pos):
-        return math.sqrt((pos.x-self.getX())**2 + (pos.y - self.getY())**2)
+    def potential(self,pos,shape = "circle"):
+        if shape == "circle":
+            return math.sqrt((pos.x-self.getX())**2 + (pos.y - self.getY())**2)
+        elif shape == "square":
+            return max(abs(pos.x-self.getX()), abs(pos.y - self.getY()))
+        elif shape == "losange":
+            return abs(pos.x-self.getX()) + abs(pos.y - self.getY())
+            
 
     def isInside(self,pos):        ## convention : potential = 0 in the position of the skeleton and increasing    
         return self.potential(pos) < self.isovalue
@@ -150,8 +157,10 @@ class Ball:
     def changeColor(self,col):
         self.color = col
     
-    def updatePos(self,pos):
+    def updatePos(self,pos,time = -1):
         self.skeleton.updatePos(pos)
+        if time > 0 :
+            self.updateIso(time)
         self.getborder()
 #        print("len(self.border) = {}".format(len(self.border)))
         self.up = max(self.border, key=lambda p:p.y).y
@@ -193,8 +202,8 @@ class Ball:
         return self.mass
     
     def getInside(self):
-        x_space = np.linspace(self.getX()-self.isovalue, self.getX() + self.isovalue, num = 20)
-        y_space = np.linspace(self.getY()-self.isovalue, self.getY() + self.isovalue, num = 20)
+        x_space = np.linspace(self.getX() - 2*abs(self.left - self.getX()), self.getX() + 2*abs(self.right - self.getX()), num = 30, endpoint=True)
+        y_space = np.linspace(self.getY() - 2*abs(self.down - self.getY()), self.getY() + 2*abs(self.up - self.getY()), num = 30, endpoint=True)
         inside = []
         for x in x_space:
             for y in y_space:
@@ -202,18 +211,10 @@ class Ball:
                 if self.isInside(p):
                     inside.append(p)
         return inside
-
-################################## !!!!!!!!!!!!!!!!!!!!!!!!!!#################"
-        x_space = np.linspace(self.left, self.right, num = 10, endpoint=True)
-        y_space = np.linspace(self.down, self.up, num = 10, endpoint=True)
-        inside = []
-        for x in x_space:
-            for y in y_space:
-                p = Position(x,y)
-#                print(p)
-                if self.isInside(p):
-                    inside.append(p)
-        return inside
+    
+    def updateIso(self,time):
+        self.isovalue = self.restIso + 0.05 * math.cos(2*math.pi*time)
+#        self.isovalue = self.isovalue + 
     
 ###############################################################################
     
@@ -255,9 +256,9 @@ class Animation:
             new_x = ball.getX() + ball.getVX() * dt
             new_y = max(self.space[3]+0.75*ball.size, ball.getY() + ball.getVY() * dt)
             newPos = Position(new_x,new_y)
-            ball.updatePos(newPos)
+            ball.updatePos(newPos,time=self.time)
         
-        # delect colliding pairs
+        # detect colliding pairs
         for i in range(len(self.ballset)):
             for j in range(i):
                 if self.ballset[i].isColliding(self.ballset[j]):
@@ -309,7 +310,7 @@ for col in aux.values():
     colors.append(col)
 nb_colors = len(colors)
 
-random.seed(0)
+random.seed(5)
 bs = []
 for k in range(n):
     x = random.random() - 0.5
@@ -318,7 +319,8 @@ for k in range(n):
     vy = (random.random() - 0.5) * scale_speed
     p = Position(x=x,y=y)
     s = Skeleton(position=p, vx=vx, vy=vy)
-    b = Ball(skeleton = s, border_size = border_size,color = colors[k % nb_colors])
+    m = 0.08 + 0.02 * random.random()
+    b = Ball(skeleton = s, border_size = border_size,color = colors[k % nb_colors],mass=m)
     bs.append(b)
 
 animation = Animation(bs)
@@ -410,7 +412,7 @@ def _animate(t): # one step of animation
 res = anim.FuncAnimation(fig, _animate, frames=1000,
                               interval=10, blit=True, init_func=_init_function)
 
-res.save('movement.mp4', fps=20, extra_args=['-vcodec', 'libx264'])
+res.save('movementTest.mp4', fps=20, extra_args=['-vcodec', 'libx264'])
 
 plt.show()
 
